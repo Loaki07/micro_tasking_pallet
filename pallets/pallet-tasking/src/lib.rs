@@ -5,7 +5,7 @@ use frame_support::codec::{Decode, Encode};
 /// Learn more about FRAME and the core library of Substrate FRAME pallets:
 /// https://substrate.dev/docs/en/knowledgebase/runtime/frame
 use frame_support::{
-	decl_error, decl_event, decl_module, decl_storage, dispatch,
+	debug, decl_error, decl_event, decl_module, decl_storage, dispatch,
 	traits::{Currency, ReservableCurrency},
 };
 use frame_system::ensure_signed;
@@ -47,6 +47,8 @@ decl_storage! {
 
 			TaskStorage get(fn task):
 			map hasher(blake2_128_concat) Vec<u8> => TaskDetails<T::AccountId, BalanceOf<T>>;
+			AccountBalances get(fn get_account_balances):
+			map hasher(blake2_128_concat) T::AccountId => BalanceOf<T>;
 	}
 }
 
@@ -62,6 +64,7 @@ decl_event!(
 		/// parameters. [something, who]
 		SomethingStored(u32, AccountId),
 		AccountDetails(AccountId, u64, Vec<u8>, Balance),
+		AccBalance(AccountId, Balance),
 	}
 );
 
@@ -72,6 +75,7 @@ decl_error! {
 		NoneValue,
 		/// Errors should have helpful documentation associated with them.
 		StorageOverflow,
+		OriginNotSigned,
 	}
 }
 
@@ -104,6 +108,29 @@ decl_module! {
 		  TaskStorage::<T>::insert(task_des.clone(), temp);
 		  Self::deposit_event(RawEvent::AccountDetails(sender, task_duration.clone(), task_des.clone(), task_cost.clone()));
 		  Ok(())
+		}
+
+		#[weight = 10_000]
+		pub fn get_account_balance(origin) -> dispatch::DispatchResult {
+
+			// To check balance of an account
+			// 1. Returns the account balance
+			// 2. Store the balances in a map
+			// 3. if the balance of the accountId already exists in the map, then get that value and return it
+			// 4. else make a call using the Currency::total_balance function to get the account balance and
+			//  store it in the map and also return the value
+
+			let sender = ensure_signed(origin)?;
+
+			let current_balance = T::Currency::total_balance(&sender);
+			AccountBalances::<T>::insert(&sender, &current_balance);
+
+			debug::info!("Account Balance: {:?}", current_balance);
+			Self::deposit_event(RawEvent::AccBalance(sender, current_balance));
+
+			// let result = AccountBalances::<T>::get(&sender);
+			// debug::info!("Account Balance: {:?}", result);
+			Ok(())
 		}
 	}
 }
