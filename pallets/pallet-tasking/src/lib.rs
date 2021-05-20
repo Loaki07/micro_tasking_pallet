@@ -132,5 +132,18 @@ decl_module! {
 			// debug::info!("Account Balance: {:?}", result);
 			Ok(())
 		}
+
+		#[weight = 10_000]
+		pub fn get_data_from_store(origin, task_des: Vec<u8>) -> dispatch::DispatchResult {
+			let sender = ensure_signed(origin)?;
+
+			let acc_balance = AccountBalances::<T>::get(&sender);
+			debug::info!("get_data_from_store balance: {:?}", acc_balance);
+
+			let task_details = TaskStorage::<T>::get(&task_des);
+			debug::info!("get_data_from_store taskstore: {:?}", task_details.dur);
+
+			Ok(())
+		}
 	}
 }
