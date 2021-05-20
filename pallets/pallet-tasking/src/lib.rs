@@ -120,16 +120,21 @@ decl_module! {
 			// 4. else make a call using the Currency::total_balance function to get the account balance and
 			//  store it in the map and also return the value
 
+			let result;
+			let current_balance;
 			let sender = ensure_signed(origin)?;
 
-			let current_balance = T::Currency::total_balance(&sender);
-			AccountBalances::<T>::insert(&sender, &current_balance);
+			result = AccountBalances::<T>::contains_key(&sender);
+			
+			if !result {
+				current_balance = T::Currency::total_balance(&sender);
+				AccountBalances::<T>::insert(&sender, &current_balance);
+			} else {
+				current_balance = AccountBalances::<T>::get(&sender);
+			}
 
 			debug::info!("Account Balance: {:?}", current_balance);
 			Self::deposit_event(RawEvent::AccBalance(sender, current_balance));
-
-			// let result = AccountBalances::<T>::get(&sender);
-			// debug::info!("Account Balance: {:?}", result);
 			Ok(())
 		}
 
