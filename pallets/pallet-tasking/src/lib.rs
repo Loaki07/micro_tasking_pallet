@@ -10,6 +10,7 @@ use frame_support::{
 };
 use frame_system::ensure_signed;
 use sp_std::vec::Vec;
+
 #[cfg(test)]
 mod mock;
 
@@ -28,14 +29,15 @@ pub struct TaskDetails<AccountId, Balance> {
 	cost: Balance,
 }
 
-#[derive(Encode, Decode, Default)]
+#[derive(Encode, Decode, Default, Debug)]
 pub struct TransferDetails<AccountId, Balance> {
 	transfer_from: AccountId,
+	from_before: Balance,
+	from_after: Balance,
 	transfer_to: AccountId,
-	transfer_amount: Balance,
+	to_before: Balance,
+	to_after: Balance,
 }
-
-pub const ZERO_BALANCE: u128 = 0;
 
 /// Configure the pallet by specifying the parameters and types on which it depends.
 pub trait Config: frame_system::Config {
@@ -59,6 +61,7 @@ decl_storage! {
 			AccountBalances get(fn get_account_balances):
 			map hasher(blake2_128_concat) T::AccountId => BalanceOf<T>;
 			Count get(fn get_count): u128 = 0;
+			Transfers get(fn get_transfers): Vec<TransferDetails<T::AccountId, BalanceOf<T>>>;
 	}
 }
 
@@ -182,9 +185,9 @@ decl_module! {
 			let sender = ensure_signed(origin)?;
 			let sender_account_balance = T::Currency::total_balance(&sender);
 
-			let is_valid_to_transfer = sender_account_balance.clone() < transfer_amount.clone();
-			debug::info!("is_valid_to_transfer {:?}", is_valid_to_transfer);
-			ensure!(!is_valid_to_transfer, Error::<T>::NotEnoughBalance);
+			// let is_valid_to_transfer = sender_account_balance.clone() < transfer_amount.clone();
+			// debug::info!("is_valid_to_transfer {:?}", is_valid_to_transfer);
+			// ensure!(!is_valid_to_transfer, Error::<T>::NotEnoughBalance);
 
 			let to_account_balance = T::Currency::total_balance(&to);
 
@@ -195,6 +198,20 @@ decl_module! {
 			let updated_to_account_balance = T::Currency::total_balance(&to);
 
 			Self::deposit_event(RawEvent::CountIncreased(Self::get_count()));
+			
+			// Initializing a vec and storing the details is a Vec
+			let mut details: Vec<TransferDetails<T::AccountId, BalanceOf<T>>> = Vec::new();
+			let transfer_details = TransferDetails {
+				transfer_from: sender.clone(),
+				from_before: sender_account_balance.clone(),
+				from_after: updated_sender_account_balance.clone(),
+				transfer_to: to.clone(),
+				to_before: to_account_balance.clone(),
+				to_after: updated_to_account_balance.clone(),
+			};
+			
+			details.push(transfer_details);
+			Transfers::<T>::put(details);
 
 			debug::info!("Transfer Details Sender: {:#?}", &sender);
 			debug::info!("Transfer Details Before Balance{:#?}", sender_account_balance.clone());
@@ -202,6 +219,9 @@ decl_module! {
 			debug::info!("Transfer Details To Account: {:#?}", &to);
 			debug::info!("Transfer Details Before Balance {:#?}", to_account_balance.clone());
 			debug::info!("Transfer Details After Balance: {:#?}", updated_to_account_balance.clone());
+
+			let transfers_in_store = Self::get_transfers();
+			debug::info!("Transfer Details From Vec: {:#?}", transfers_in_store);
 			// Self::deposit_event(RawEvent::TransferMoney(&sender, sender_account_balance.clone(), updated_sender_account_balance.clone(), &to, to_account_balance.clone(), updated_to_account_balance.clone()));
 
 			Ok(())
