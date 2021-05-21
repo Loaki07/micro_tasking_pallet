@@ -29,7 +29,7 @@ pub struct TaskDetails<AccountId, Balance> {
 	cost: Balance,
 }
 
-#[derive(Encode, Decode, Default, Debug)]
+#[derive(Encode, Decode, Default, Debug, PartialEq, Clone, Eq)]
 pub struct TransferDetails<AccountId, Balance> {
 	transfer_from: AccountId,
 	from_before: Balance,
@@ -79,7 +79,7 @@ decl_event!(
 		AccountDetails(AccountId, u64, Vec<u8>, Balance),
 		AccBalance(AccountId, Balance),
 		CountIncreased(u128),
-		TransferMoney(AccountId, Balance, Balance, AccountId, Balance, Balance),
+		TransferMoneyNewEvent(AccountId, Balance, Balance, AccountId, Balance, Balance),
 	}
 );
 
@@ -196,9 +196,9 @@ decl_module! {
 
 			let updated_sender_account_balance = T::Currency::total_balance(&sender);
 			let updated_to_account_balance = T::Currency::total_balance(&to);
-
-			Self::deposit_event(RawEvent::CountIncreased(Self::get_count()));
 			
+			Self::deposit_event(RawEvent::CountIncreased(Self::get_count()));
+
 			// Initializing a vec and storing the details is a Vec
 			let mut details: Vec<TransferDetails<T::AccountId, BalanceOf<T>>> = Vec::new();
 			let transfer_details = TransferDetails {
@@ -209,21 +209,21 @@ decl_module! {
 				to_before: to_account_balance.clone(),
 				to_after: updated_to_account_balance.clone(),
 			};
-			
 			details.push(transfer_details);
 			Transfers::<T>::put(details);
-
+			
 			debug::info!("Transfer Details Sender: {:#?}", &sender);
 			debug::info!("Transfer Details Before Balance{:#?}", sender_account_balance.clone());
 			debug::info!("Transfer Details After Balance: {:#?}", updated_sender_account_balance.clone());
 			debug::info!("Transfer Details To Account: {:#?}", &to);
 			debug::info!("Transfer Details Before Balance {:#?}", to_account_balance.clone());
 			debug::info!("Transfer Details After Balance: {:#?}", updated_to_account_balance.clone());
-
+			
 			let transfers_in_store = Self::get_transfers();
-			debug::info!("Transfer Details From Vec: {:#?}", transfers_in_store);
-			// Self::deposit_event(RawEvent::TransferMoney(&sender, sender_account_balance.clone(), updated_sender_account_balance.clone(), &to, to_account_balance.clone(), updated_to_account_balance.clone()));
+			debug::info!("Transfer Details From Vec: {:#?}", transfers_in_store[0]);
 
+			Self::deposit_event(RawEvent::TransferMoneyNewEvent(sender.clone(), sender_account_balance.clone(), updated_sender_account_balance.clone(), to.clone(), to_account_balance.clone(), updated_to_account_balance.clone()));
+			
 			Ok(())
 		}
 	}
