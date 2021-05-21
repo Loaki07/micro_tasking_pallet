@@ -5,8 +5,8 @@ use frame_support::codec::{Decode, Encode};
 /// Learn more about FRAME and the core library of Substrate FRAME pallets:
 /// https://substrate.dev/docs/en/knowledgebase/runtime/frame
 use frame_support::{
-	debug, decl_error, decl_event, decl_module, decl_storage, dispatch,
-	traits::{Currency, ReservableCurrency},
+	debug, decl_error, decl_event, decl_module, decl_storage, dispatch, ensure,
+	traits::{Currency, ExistenceRequirement, ReservableCurrency},
 };
 use frame_system::ensure_signed;
 use sp_std::vec::Vec;
@@ -27,6 +27,15 @@ pub struct TaskDetails<AccountId, Balance> {
 	des: Vec<u8>,
 	cost: Balance,
 }
+
+#[derive(Encode, Decode, Default)]
+pub struct TransferDetails<AccountId, Balance> {
+	transfer_from: AccountId,
+	transfer_to: AccountId,
+	transfer_amount: Balance,
+}
+
+pub const ZERO_BALANCE: u128 = 0;
 
 /// Configure the pallet by specifying the parameters and types on which it depends.
 pub trait Config: frame_system::Config {
@@ -67,6 +76,7 @@ decl_event!(
 		AccountDetails(AccountId, u64, Vec<u8>, Balance),
 		AccBalance(AccountId, Balance),
 		CountIncreased(u128),
+		TransferMoney(AccountId, Balance, Balance, AccountId, Balance, Balance),
 	}
 );
 
@@ -78,6 +88,7 @@ decl_error! {
 		/// Errors should have helpful documentation associated with them.
 		StorageOverflow,
 		OriginNotSigned,
+		NotEnoughBalance,
 	}
 }
 
@@ -127,7 +138,6 @@ decl_module! {
 			let sender = ensure_signed(origin)?;
 
 			result = AccountBalances::<T>::contains_key(&sender);
-			
 			if !result {
 				current_balance = T::Currency::total_balance(&sender);
 				AccountBalances::<T>::insert(&sender, &current_balance);
@@ -159,6 +169,42 @@ decl_module! {
 			let current_count = Self::get_count();
 			Count::put(current_count + 1);
 			Self::deposit_event(RawEvent::CountIncreased(Self::get_count()));
+		}
+
+
+
+		#[weight = 10_000]
+		pub fn transfer_money(origin, to: T::AccountId, transfer_amount: BalanceOf<T>) -> dispatch::DispatchResult {
+			// 1. Transfer Money
+			// 2. Check if the sender has enough funds to send money else throw Error
+			// 2. Store the details in a struct
+			// 3. Store the details in a vec
+			let sender = ensure_signed(origin)?;
+			let sender_account_balance = T::Currency::total_balance(&sender);
+
+			let is_valid_to_transfer = sender_account_balance.clone() < transfer_amount.clone();
+			debug::info!("is_valid_to_transfer {:?}", is_valid_to_transfer);
+			ensure!(!is_valid_to_transfer, Error::<T>::NotEnoughBalance);
+
+			let to_account_balance = T::Currency::total_balance(&to);
+
+			let result = T::Currency::transfer(&sender, &to, transfer_amount, ExistenceRequirement::KeepAlive)?;
+			debug::info!("Transfer Result {:?}", result);
+
+			let updated_sender_account_balance = T::Currency::total_balance(&sender);
+			let updated_to_account_balance = T::Currency::total_balance(&to);
+
+			Self::deposit_event(RawEvent::CountIncreased(Self::get_count()));
+			
+			debug::info!("Transfer Details Sender: {:#?}", &sender);
+			debug::info!("Transfer Details Before Balance{:#?}", sender_account_balance.clone());
+			debug::info!("Transfer Details After Balance: {:#?}", updated_sender_account_balance.clone());
+			debug::info!("Transfer Details To Account: {:#?}", &sender);
+			debug::info!("Transfer Details Before Balance {:#?}", to_account_balance.clone());
+			debug::info!("Transfer Details After Balance: {:#?}", updated_to_account_balance.clone());
+			// Self::deposit_event(RawEvent::TransferMoney(&sender, sender_account_balance.clone(), updated_sender_account_balance.clone(), &to, to_account_balance.clone(), updated_to_account_balance.clone()));
+
+			Ok(())
 		}
 	}
 }
