@@ -195,11 +195,11 @@ decl_module! {
 			let updated_to_account_balance = T::Currency::total_balance(&to);
 
 			Self::deposit_event(RawEvent::CountIncreased(Self::get_count()));
-			
+
 			debug::info!("Transfer Details Sender: {:#?}", &sender);
 			debug::info!("Transfer Details Before Balance{:#?}", sender_account_balance.clone());
 			debug::info!("Transfer Details After Balance: {:#?}", updated_sender_account_balance.clone());
-			debug::info!("Transfer Details To Account: {:#?}", &sender);
+			debug::info!("Transfer Details To Account: {:#?}", &to);
 			debug::info!("Transfer Details Before Balance {:#?}", to_account_balance.clone());
 			debug::info!("Transfer Details After Balance: {:#?}", updated_to_account_balance.clone());
 			// Self::deposit_event(RawEvent::TransferMoney(&sender, sender_account_balance.clone(), updated_sender_account_balance.clone(), &to, to_account_balance.clone(), updated_to_account_balance.clone()));
