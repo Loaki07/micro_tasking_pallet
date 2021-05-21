@@ -49,6 +49,7 @@ decl_storage! {
 			map hasher(blake2_128_concat) Vec<u8> => TaskDetails<T::AccountId, BalanceOf<T>>;
 			AccountBalances get(fn get_account_balances):
 			map hasher(blake2_128_concat) T::AccountId => BalanceOf<T>;
+			Count get(fn get_count): u128 = 0;
 	}
 }
 
@@ -65,6 +66,7 @@ decl_event!(
 		SomethingStored(u32, AccountId),
 		AccountDetails(AccountId, u64, Vec<u8>, Balance),
 		AccBalance(AccountId, Balance),
+		CountIncreased(u128),
 	}
 );
 
@@ -149,6 +151,14 @@ decl_module! {
 			debug::info!("get_data_from_store taskstore: {:?}", task_details.dur);
 
 			Ok(())
+		}
+
+		#[weight = 10_000]
+		pub fn increase_counter(origin) {
+			ensure_signed(origin)?;
+			let current_count = Self::get_count();
+			Count::put(current_count + 1);
+			Self::deposit_event(RawEvent::CountIncreased(Self::get_count()));
 		}
 	}
 }
