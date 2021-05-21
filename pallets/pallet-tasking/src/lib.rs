@@ -9,6 +9,8 @@ use frame_support::{
 	traits::{Currency, ExistenceRequirement, ReservableCurrency},
 };
 use frame_system::ensure_signed;
+use pallet_balances;
+use pallet_staking;
 use sp_std::vec::Vec;
 
 #[cfg(test)]
@@ -218,7 +220,6 @@ decl_module! {
 			debug::info!("Transfer Details After Balance: {:#?}", updated_to_account_balance.clone());
 			let transfers_in_store = Self::get_transfers();
 			debug::info!("Transfer Details From Vec: {:#?}", &transfers_in_store[0]);
-		
 			Self::deposit_event(RawEvent::TransferMoney(sender.clone(), sender_account_balance.clone(), updated_sender_account_balance.clone(), to.clone(), to_account_balance.clone(), updated_to_account_balance.clone()));
 			Ok(())
 		}
