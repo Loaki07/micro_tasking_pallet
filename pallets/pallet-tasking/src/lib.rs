@@ -24,6 +24,7 @@ pub type BalanceOf<T> =
 
 #[derive(Encode, Decode, Default)]
 pub struct TaskDetails<AccountId, Balance> {
+	task_id: u128,
 	client: AccountId,
 	worker_id: Option<AccountId>,
 	dur: u64,
@@ -59,11 +60,13 @@ decl_storage! {
 		// https://substrate.dev/docs/en/knowledgebase/runtime/storage#declaring-storage-items
 
 			TaskStorage get(fn task):
-			map hasher(blake2_128_concat) Vec<u8> => TaskDetails<T::AccountId, BalanceOf<T>>;
+			map hasher(blake2_128_concat) u128 => TaskDetails<T::AccountId, BalanceOf<T>>;
 			AccountBalances get(fn get_account_balances):
 			map hasher(blake2_128_concat) T::AccountId => BalanceOf<T>;
 			Count get(fn get_count): u128 = 0;
 			Transfers get(fn get_transfers): Vec<TransferDetails<T::AccountId, BalanceOf<T>>>;
+			StakerStorage get(fn staker_list):
+			map hasher(blake2_128_concat) u128 => Vec<T::AccountId>;
 	}
 }
 
@@ -78,10 +81,11 @@ decl_event!(
 		/// Event documentation should end with an array that provides descriptive names for event
 		/// parameters. [something, who]
 		SomethingStored(u32, AccountId),
-		AccountDetails(AccountId, u64, Vec<u8>, Balance),
+		TaskCreated(AccountId, u128, u64, Vec<u8>, Balance),
 		AccBalance(AccountId, Balance),
 		CountIncreased(u128),
 		TransferMoney(AccountId, Balance, Balance, AccountId, Balance, Balance),
+		StakerAdded(AccountId),
 	}
 );
 
@@ -94,6 +98,8 @@ decl_error! {
 		StorageOverflow,
 		OriginNotSigned,
 		NotEnoughBalance,
+		TaskDoesNotExist,
+		AlreadyMember,
 	}
 }
 
@@ -116,16 +122,41 @@ decl_module! {
 		#[weight = 10_000]
 		pub fn create_task(origin, task_duration: u64, task_des: Vec<u8>, task_cost: BalanceOf<T>) -> dispatch::DispatchResult {
 		 let sender = ensure_signed(origin)?;
+		 let current_count = Self::get_count();
 		 let temp= TaskDetails {
+			  task_id: current_count.clone(),
 			  client:sender.clone(),
 			  worker_id:None,
 			  dur:task_duration.clone(),
 			  des:task_des.clone(),
 			  cost:task_cost.clone(),
 		  };
-		  TaskStorage::<T>::insert(task_des.clone(), temp);
-		  Self::deposit_event(RawEvent::AccountDetails(sender, task_duration.clone(), task_des.clone(), task_cost.clone()));
+		  TaskStorage::<T>::insert(current_count.clone(), temp);
+		  Self::deposit_event(RawEvent::TaskCreated(sender, current_count.clone(), task_duration.clone(), task_des.clone(), task_cost.clone()));
+		  Count::put(current_count + 1);
 		  Ok(())
+		}
+
+		#[weight = 10_000]
+		pub fn add_staker(origin, task_id: u128) -> dispatch::DispatchResult {
+			let staker = ensure_signed(origin)?;
+			ensure!(TaskStorage::<T>::contains_key(&task_id), Error::<T>::TaskDoesNotExist);
+			
+			let mut temp_staker_list = Self::staker_list(&task_id);
+			debug::info!("Calling function using get method {:?}", &temp_staker_list);
+
+			match temp_staker_list.binary_search(&staker) {
+				// If the search succeeds, the caller is already a member, so just return
+				Ok(_) => Err(Error::<T>::AlreadyMember.into()),
+				// If the search fails, the caller is not a member and we learned the index where
+				// they should be inserted
+				Err(index) => {
+					temp_staker_list.insert(index, staker.clone());
+					StakerStorage::<T>::insert(task_id.clone(), temp_staker_list);
+					Self::deposit_event(RawEvent::StakerAdded(staker.clone()));
+					Ok(())
+				}
+			}
 		}
 
 		#[weight = 10_000]
@@ -156,13 +187,13 @@ decl_module! {
 		}
 
 		#[weight = 10_000]
-		pub fn get_data_from_store(origin, task_des: Vec<u8>) -> dispatch::DispatchResult {
+		pub fn get_data_from_store(origin, task_id: u128) -> dispatch::DispatchResult {
 			let sender = ensure_signed(origin)?;
 
 			let acc_balance = AccountBalances::<T>::get(&sender);
 			debug::info!("get_data_from_store balance: {:?}", acc_balance);
 
-			let task_details = TaskStorage::<T>::get(&task_des);
+			let task_details = TaskStorage::<T>::get(&task_id);
 			debug::info!("get_data_from_store taskstore: {:?}", task_details.dur);
 
 			Ok(())
@@ -223,5 +254,6 @@ decl_module! {
 			Self::deposit_event(RawEvent::TransferMoney(sender.clone(), sender_account_balance.clone(), updated_sender_account_balance.clone(), to.clone(), to_account_balance.clone(), updated_to_account_balance.clone()));
 			Ok(())
 		}
+
 	}
 }
