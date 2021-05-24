@@ -24,6 +24,7 @@ frame-system = { default-features = false, version = '3.0.0' }
 sp-std = { default-features = false, version = '3.0.0' }
 pallet-balances = {default-features = false, version = '3.0.0'}
 pallet-staking = {default-features = false, version = '3.0.0'}
+pallet-assets = {default-features = false, version = '3.0.0'}
 
 [dev-dependencies]
 serde = { version = "1.0.119" }
@@ -40,4 +41,5 @@ std = [
     'sp-std/std',
     'pallet-balances/std',
     'pallet-staking/std',
+    'pallet-assets/std'
 ]

@@ -6,9 +6,13 @@ use frame_support::codec::{Decode, Encode};
 /// https://substrate.dev/docs/en/knowledgebase/runtime/frame
 use frame_support::{
 	debug, decl_error, decl_event, decl_module, decl_storage, dispatch, ensure,
-	traits::{Currency, ExistenceRequirement, ReservableCurrency},
+	traits::{
+		Currency, ExistenceRequirement, Get, LockIdentifier, LockableCurrency, ReservableCurrency,
+		WithdrawReasons,
+	},
 };
 use frame_system::ensure_signed;
+use pallet_assets;
 use pallet_balances;
 use pallet_staking;
 use sp_std::vec::Vec;
@@ -18,6 +22,8 @@ mod mock;
 
 #[cfg(test)]
 mod tests;
+
+pub const LOCKSECRET: LockIdentifier = *b"mylockab";
 
 pub type BalanceOf<T> =
 	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
@@ -48,7 +54,7 @@ pub struct TransferDetails<AccountId, Balance> {
 pub trait Config: frame_system::Config {
 	/// Because this pallet emits events, it depends on the runtime's definition of an event.
 	type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
-	type Currency: ReservableCurrency<Self::AccountId>;
+	type Currency: LockableCurrency<Self::AccountId>;
 }
 
 // The pallet's runtime storage items.
@@ -90,6 +96,7 @@ decl_event!(
 		TransferMoney(AccountId, Balance, Balance, AccountId, Balance, Balance),
 		StakerAdded(AccountId),
 		TaskIsBidded(AccountId, u128),
+		AmountTransfered(AccountId, Balance),
 	}
 );
 
@@ -127,6 +134,10 @@ decl_module! {
 		pub fn create_task(origin, task_duration: u64, task_des: Vec<u8>, task_cost: BalanceOf<T>) -> dispatch::DispatchResult {
 		 let sender = ensure_signed(origin)?;
 		 let current_count = Self::get_task_count();
+
+		 let result_from_locking = T::Currency::set_lock(LOCKSECRET, &sender, task_cost.clone(), WithdrawReasons::TRANSACTION_PAYMENT);
+		 debug::info!("result_from_locking : {:#?}", result_from_locking);
+
 		 let temp= TaskDetails {
 			  task_id: current_count.clone(),
 			  client:sender.clone(),
@@ -146,9 +157,7 @@ decl_module! {
 		#[weight = 10_000]
 		pub fn bid_for_task(origin, task_id: u128) {
 			let bidder = ensure_signed(origin)?;
-			
 			ensure!(TaskStorage::<T>::contains_key(&task_id), Error::<T>::TaskDoesNotExist);
-			
 			let mut task = TaskStorage::<T>::get(task_id.clone());
 			task.worker_id = Some(bidder.clone());
 			task.is_bidded = true;
@@ -213,7 +222,8 @@ decl_module! {
 		pub fn get_data_from_store(origin, task_id: u128) -> dispatch::DispatchResult {
 			let sender = ensure_signed(origin)?;
 
-			let acc_balance = AccountBalances::<T>::get(&sender);
+			let acc_balance = T::Currency::total_balance(&sender);
+			// let acc_balance = AccountBalances::<T>::get(&sender);
 			debug::info!("get_data_from_store balance: {:?}", acc_balance);
 
 			let task_details = TaskStorage::<T>::get(&task_id);
@@ -232,8 +242,6 @@ decl_module! {
 			Count::put(current_count + Self::get_one());
 			Self::deposit_event(RawEvent::CountIncreased(Self::get_count()));
 		}
-
-
 
 		#[weight = 10_000]
 		pub fn transfer_money(origin, to: T::AccountId, transfer_amount: BalanceOf<T>) -> dispatch::DispatchResult {
@@ -292,5 +300,15 @@ impl<T: Config> Module<T> {
 
 	pub fn get_task(task_id: u128) -> TaskDetails<T::AccountId, BalanceOf<T>> {
 		TaskStorage::<T>::get(&task_id)
+	}
+
+	pub fn transfer(sender: T::AccountId, to: T::AccountId, amount_to_transfer: BalanceOf<T>) {
+		T::Currency::transfer(
+			&sender,
+			&to,
+			amount_to_transfer,
+			ExistenceRequirement::KeepAlive,
+		)
+		.unwrap();
 	}
 }
