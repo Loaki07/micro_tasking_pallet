@@ -63,6 +63,7 @@ decl_storage! {
 
 			TaskStorage get(fn task):
 			map hasher(blake2_128_concat) u128 => TaskDetails<T::AccountId, BalanceOf<T>>;
+			TaskCount get(fn get_task_count): u128 = 0;
 			AccountBalances get(fn get_account_balances):
 			map hasher(blake2_128_concat) T::AccountId => BalanceOf<T>;
 			Count get(fn get_count): u128 = 0;
@@ -125,7 +126,7 @@ decl_module! {
 		#[weight = 10_000]
 		pub fn create_task(origin, task_duration: u64, task_des: Vec<u8>, task_cost: BalanceOf<T>) -> dispatch::DispatchResult {
 		 let sender = ensure_signed(origin)?;
-		 let current_count = Self::get_count();
+		 let current_count = Self::get_task_count();
 		 let temp= TaskDetails {
 			  task_id: current_count.clone(),
 			  client:sender.clone(),
@@ -138,7 +139,7 @@ decl_module! {
 		  };
 		  TaskStorage::<T>::insert(current_count.clone(), temp);
 		  Self::deposit_event(RawEvent::TaskCreated(sender, current_count.clone(), task_duration.clone(), task_des.clone(), task_cost.clone()));
-		  Count::put(current_count + 1);
+		  TaskCount::put(current_count + 1);
 		  Ok(())
 		}
 
