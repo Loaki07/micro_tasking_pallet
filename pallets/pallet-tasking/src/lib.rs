@@ -22,7 +22,7 @@ mod tests;
 pub type BalanceOf<T> =
 	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
-#[derive(Encode, Decode, Default)]
+	#[derive(Encode, Decode, Default, Debug, PartialEq, Clone, Eq)]
 pub struct TaskDetails<AccountId, Balance> {
 	task_id: u128,
 	client: AccountId,
@@ -138,7 +138,7 @@ decl_module! {
 		}
 
 		#[weight = 10_000]
-		pub fn add_staker(origin, task_id: u128) -> dispatch::DispatchResult {
+		pub fn bid_for_task(origin, task_id: u128) -> dispatch::DispatchResult {
 			let staker = ensure_signed(origin)?;
 			ensure!(TaskStorage::<T>::contains_key(&task_id), Error::<T>::TaskDoesNotExist);
 			
@@ -194,7 +194,10 @@ decl_module! {
 			debug::info!("get_data_from_store balance: {:?}", acc_balance);
 
 			let task_details = TaskStorage::<T>::get(&task_id);
-			debug::info!("get_data_from_store taskstore: {:?}", task_details.dur);
+			debug::info!("get_data_from_store taskstore: {:#?}", task_details);
+			
+			let task_details_by_helper = Self::get_task(task_id.clone());
+			debug::info!("task_details_by_helper : {:#?}", task_details_by_helper);
 
 			Ok(())
 		}
@@ -203,7 +206,7 @@ decl_module! {
 		pub fn increase_counter(origin) {
 			ensure_signed(origin)?;
 			let current_count = Self::get_count();
-			Count::put(current_count + 1);
+			Count::put(current_count + Self::get_one());
 			Self::deposit_event(RawEvent::CountIncreased(Self::get_count()));
 		}
 
@@ -255,5 +258,16 @@ decl_module! {
 			Ok(())
 		}
 
+	}
+}
+
+impl<T: Config> Module<T> {
+	// Helper functions
+	pub fn get_one() -> u128 {
+		1
+	}
+
+	pub fn get_task(task_id: u128) -> TaskDetails<T::AccountId, BalanceOf<T>> {
+		TaskStorage::<T>::get(&task_id)
 	}
 }
