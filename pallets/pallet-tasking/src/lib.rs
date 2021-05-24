@@ -27,8 +27,8 @@ pub struct TaskDetails<AccountId, Balance> {
 	task_id: u128,
 	client: AccountId,
 	worker_id: Option<AccountId>,
-	dur: u64,
-	des: Vec<u8>,
+	task_deadline: u64,
+	task_description: Vec<u8>,
 	cost: Balance,
 	is_bidded: bool,
 	is_completed: bool,
@@ -88,6 +88,7 @@ decl_event!(
 		CountIncreased(u128),
 		TransferMoney(AccountId, Balance, Balance, AccountId, Balance, Balance),
 		StakerAdded(AccountId),
+		TaskIsBidded(AccountId, u128),
 	}
 );
 
@@ -129,8 +130,8 @@ decl_module! {
 			  task_id: current_count.clone(),
 			  client:sender.clone(),
 			  worker_id: None,
-			  dur:task_duration.clone(),
-			  des:task_des.clone(),
+			  task_deadline: task_duration.clone(),
+			  task_description: task_des.clone(),
 			  cost:task_cost.clone(),
 			  is_bidded: Default::default(),
 			  is_completed: Default::default(),
@@ -142,7 +143,24 @@ decl_module! {
 		}
 
 		#[weight = 10_000]
-		pub fn function_for_tasks_and_accounts_using_vec(origin, task_id: u128) -> dispatch::DispatchResult {
+		pub fn bid_for_task(origin, task_id: u128) {
+			let bidder = ensure_signed(origin)?;
+			
+			ensure!(TaskStorage::<T>::contains_key(&task_id), Error::<T>::TaskDoesNotExist);
+			
+			let mut task = TaskStorage::<T>::get(task_id.clone());
+			task.worker_id = Some(bidder.clone());
+			task.is_bidded = true;
+
+			TaskStorage::<T>::insert(&task_id, task);
+			Self::deposit_event(RawEvent::TaskIsBidded(bidder, task_id.clone()));
+
+			let task_details_by_helper = Self::get_task(task_id.clone());
+			debug::info!("task_details_by_helper : {:#?}", task_details_by_helper);
+		}
+
+		#[weight = 10_000]
+		pub fn function_for_tasks_and_accounts_using_vec_staking(origin, task_id: u128) -> dispatch::DispatchResult {
 			let staker = ensure_signed(origin)?;
 
 			ensure!(TaskStorage::<T>::contains_key(&task_id), Error::<T>::TaskDoesNotExist);
@@ -199,6 +217,7 @@ decl_module! {
 
 			let task_details = TaskStorage::<T>::get(&task_id);
 			debug::info!("get_data_from_store taskstore: {:#?}", task_details);
+
 			let task_details_by_helper = Self::get_task(task_id.clone());
 			debug::info!("task_details_by_helper : {:#?}", task_details_by_helper);
 
