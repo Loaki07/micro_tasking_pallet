@@ -39,7 +39,7 @@ pub fn create_full<C, P>(
 {
 	use substrate_frame_rpc_system::{FullSystem, SystemApi};
 	use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApi};
-	use pallet_tasking_rpc::{TaskStore, PalletTaskingApi}
+	use pallet_tasking_rpc::{TaskStore, PalletTaskingApi};
 
 	let mut io = jsonrpc_core::IoHandler::default();
 	let FullDeps {
@@ -56,9 +56,9 @@ pub fn create_full<C, P>(
 		TransactionPaymentApi::to_delegate(TransactionPayment::new(client.clone()))
 	);
 
-	io.extend_with(
-		PalletTaskingApi::to_delegate(TaskStore::new(client.clone()))
-	);
+	// io.extend_with(
+	// 	PalletTaskingApi::to_delegate(TaskStore::new(client.clone()))
+	// );
 
 	// Extend this RPC with a custom API by using the following syntax.
 	// `YourRpcStruct` should have a reference to a client, which is needed

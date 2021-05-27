@@ -59,22 +59,22 @@ pub trait Config: frame_system::Config {
 
 // The pallet's runtime storage items.
 // https://substrate.dev/docs/en/knowledgebase/runtime/storage
+// A unique name is used to ensure that the pallet's storage items are isolated.
+// This name may be updated, but each pallet in the runtime must use a unique name.
+// ---------------------------------vvvvvvvvvvvvvv
+// Learn more about declaring storage items:
+// https://substrate.dev/docs/en/knowledgebase/runtime/storage#declaring-storage-items
 decl_storage! {
-	// A unique name is used to ensure that the pallet's storage items are isolated.
-	// This name may be updated, but each pallet in the runtime must use a unique name.
-	// ---------------------------------vvvvvvvvvvvvvv
-	trait Store for Module<T: Config> as TaskStore {
-		// Learn more about declaring storage items:
-		// https://substrate.dev/docs/en/knowledgebase/runtime/storage#declaring-storage-items
+	pub trait Store for Module<T: Config> as TaskStore {
 
-			TaskStorage get(fn task):
+			pub TaskStorage get(fn task):
 			map hasher(blake2_128_concat) u128 => TaskDetails<T::AccountId, BalanceOf<T>>;
-			TaskCount get(fn get_task_count): u128 = 0;
-			AccountBalances get(fn get_account_balances):
+			pub TaskCount get(fn get_task_count): u128 = 0;
+			pub AccountBalances get(fn get_account_balances):
 			map hasher(blake2_128_concat) T::AccountId => BalanceOf<T>;
-			Count get(fn get_count): u128 = 0;
-			Transfers get(fn get_transfers): Vec<TransferDetails<T::AccountId, BalanceOf<T>>>;
-			StakerStorage get(fn staker_list):
+			pub Count get(fn get_count): u128 = 0;
+			pub Transfers get(fn get_transfers): Vec<TransferDetails<T::AccountId, BalanceOf<T>>>;
+			pub StakerStorage get(fn staker_list):
 			map hasher(blake2_128_concat) u128 => Vec<T::AccountId>;
 	}
 }

@@ -23,7 +23,7 @@ jsonrpc-core = '15.1.0'
 structopt = '0.3.8'
 
 # local dependencies
-node-template-runtime = { path = '../runtime', version = '3.0.0' }
+node-template-runtime = { path = '../runtime/api-runtime', version = '3.0.0' }
 pallet-tasking-rpc = { path = '../pallets/pallet-tasking/rpc', version = '3.0.0'}
 pallet-tasking-runtime-api = { path = '../pallets/pallet-tasking/runtime-api', default-features = false, version = '3.0.0'}
 

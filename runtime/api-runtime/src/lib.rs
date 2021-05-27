@@ -451,6 +451,7 @@ impl_runtime_apis! {
 		}
 	}
 
+	// Implementing pallet tasking custom runtime api
 	impl pallet_tasking_runtime_api::PalletTaskingApi<Block> for Runtime {
 		fn get_one() -> u128 {
 			PalletTasking::get_one()

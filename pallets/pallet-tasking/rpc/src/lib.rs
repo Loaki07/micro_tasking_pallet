@@ -1,4 +1,4 @@
-//! RPC interface for the transaction payment module.
+//! RPC interface for the pallet tasking module.
 
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
@@ -14,16 +14,16 @@ pub trait PalletTaskingApi<BlockHash> {
 	fn get_one(&self, at: Option<BlockHash>) -> Result<u128>;
 }
 
-/// A struct that implements the `SumStorageApi`.
+/// A struct that implements the `PalletTaskingApi`.
 pub struct TaskStore<C, M> {
-	// If you have more generics, no need to SumStorage<C, M, N, P, ...>
-	// just use a tuple like SumStorage<C, (M, N, P, ...)>
+	// If you have more generics, no need to TaskStore<C, M, N, P, ...>
+	// just use a tuple like TaskStore<C, (M, N, P, ...)>
 	client: Arc<C>,
 	_marker: std::marker::PhantomData<M>,
 }
 
 impl<C, M> TaskStore<C, M> {
-	/// Create new `SumStorage` instance with the given reference to the client.
+	/// Create new `TaskStore` instance with the given reference to the client.
 	pub fn new(client: Arc<C>) -> Self {
 		Self {
 			client,
