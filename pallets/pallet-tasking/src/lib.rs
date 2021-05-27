@@ -65,16 +65,16 @@ pub trait Config: frame_system::Config {
 // Learn more about declaring storage items:
 // https://substrate.dev/docs/en/knowledgebase/runtime/storage#declaring-storage-items
 decl_storage! {
-	pub trait Store for Module<T: Config> as TaskStore {
+	trait Store for Module<T: Config> as TaskStore {
 
-			pub TaskStorage get(fn task):
+			TaskStorage get(fn task):
 			map hasher(blake2_128_concat) u128 => TaskDetails<T::AccountId, BalanceOf<T>>;
-			pub TaskCount get(fn get_task_count): u128 = 0;
-			pub AccountBalances get(fn get_account_balances):
+			TaskCount get(fn get_task_count): u128 = 0;
+			AccountBalances get(fn get_account_balances):
 			map hasher(blake2_128_concat) T::AccountId => BalanceOf<T>;
-			pub Count get(fn get_count): u128 = 0;
-			pub Transfers get(fn get_transfers): Vec<TransferDetails<T::AccountId, BalanceOf<T>>>;
-			pub StakerStorage get(fn staker_list):
+			Count get(fn get_count): u128 = 0;
+			Transfers get(fn get_transfers): Vec<TransferDetails<T::AccountId, BalanceOf<T>>>;
+			StakerStorage get(fn staker_list):
 			map hasher(blake2_128_concat) u128 => Vec<T::AccountId>;
 	}
 }
