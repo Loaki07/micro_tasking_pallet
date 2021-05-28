@@ -31,13 +31,13 @@ pub type BalanceOf<T> =
 #[derive(Encode, Decode, Default, Debug, PartialEq, Clone, Eq)]
 pub struct TaskDetails<AccountId, Balance> {
 	task_id: u128,
-	client: AccountId,
+	publisher: AccountId,
 	worker_id: Option<AccountId>,
 	task_deadline: u64,
 	task_description: Vec<u8>,
 	cost: Balance,
-	is_bidded: bool,
-	is_completed: bool,
+	is_bidded: u8,
+	is_completed: u8,
 }
 
 #[derive(Encode, Decode, Default, Debug, PartialEq, Clone, Eq)]
@@ -96,7 +96,8 @@ decl_event!(
 		TransferMoney(AccountId, Balance, Balance, AccountId, Balance, Balance),
 		StakerAdded(AccountId),
 		TaskIsBidded(AccountId, u128),
-		AmountTransfered(AccountId, Balance),
+		AmountTransfered(AccountId, AccountId, Balance),
+		TaskCompleted(AccountId, u128, AccountId),
 	}
 );
 
@@ -111,6 +112,8 @@ decl_error! {
 		NotEnoughBalance,
 		TaskDoesNotExist,
 		AlreadyMember,
+		TaskIsNotApproved,
+		YouNeverBiddedForThisTask
 	}
 }
 
@@ -140,7 +143,7 @@ decl_module! {
 
 		 let temp= TaskDetails {
 			  task_id: current_count.clone(),
-			  client:sender.clone(),
+			  publisher:sender.clone(),
 			  worker_id: None,
 			  task_deadline: task_duration.clone(),
 			  task_description: task_des.clone(),
@@ -160,13 +163,43 @@ decl_module! {
 			ensure!(TaskStorage::<T>::contains_key(&task_id), Error::<T>::TaskDoesNotExist);
 			let mut task = TaskStorage::<T>::get(task_id.clone());
 			task.worker_id = Some(bidder.clone());
-			task.is_bidded = true;
+			task.is_bidded = 1;
 
 			TaskStorage::<T>::insert(&task_id, task);
 			Self::deposit_event(RawEvent::TaskIsBidded(bidder, task_id.clone()));
 
 			let task_details_by_helper = Self::get_task(task_id.clone());
 			debug::info!("task_details_by_helper : {:#?}", task_details_by_helper);
+		}
+
+		#[weight = 10_000]
+		pub fn approve_task(origin,task_id:u128) {
+			let publisher=ensure_signed(origin)?;
+			ensure!(Self::task_exist(task_id.clone()), Error::<T>::TaskDoesNotExist);
+
+			let  task_struct= TaskStorage::<T>::get(&task_id);
+			let bidder=task_struct.worker_id.clone().unwrap();
+
+			ensure!(Self::task_exist(task_id.clone()), Error::<T>::TaskDoesNotExist);
+			ensure!(task_struct.is_completed,Error::<T>::TaskIsNotApproved);
+			let transfer_amount=task_struct.cost;
+			T::Currency::remove_lock(LOCKSECRET,&publisher);
+			T::Currency::remove_lock(LOCKSECRET,&bidder);
+			T::Currency::transfer(&publisher,&bidder, transfer_amount, ExistenceRequirement::KeepAlive)?;
+
+			Self::deposit_event(RawEvent::AmountTransfered(publisher.clone(),bidder.clone(),transfer_amount.clone()));
+		}
+
+		#[weight = 10_000]
+		pub fn task_completed(origin, task_id: u128) {
+			 let bidder=ensure_signed(origin)?;
+			 ensure!(Self::task_exist(task_id.clone()), Error::<T>::TaskDoesNotExist);
+			 let mut task_struct=TaskStorage::<T>::get(&task_id);
+			 let publisher = task_struct.publisher.clone();
+			 ensure!(task_struct.worker_id.clone().unwrap()==bidder, Error::<T>::YouNeverBiddedForThisTask);
+			 task_struct.is_completed = 1;
+			 TaskStorage::<T>::insert(&task_id,task_struct.clone());
+			 Self::deposit_event(RawEvent::TaskCompleted(publisher.clone(), task_id.clone(),bidder.clone()));
 		}
 
 		#[weight = 10_000]
@@ -296,6 +329,10 @@ impl<T: Config> Module<T> {
 	// Helper functions
 	pub fn get_one() -> u128 {
 		1
+	}
+
+	pub fn task_exist(task_id: u128) -> bool {
+		TaskStorage::<T>::contains_key(&task_id)
 	}
 
 	pub fn get_task(task_id: u128) -> TaskDetails<T::AccountId, BalanceOf<T>> {
