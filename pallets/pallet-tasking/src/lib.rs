@@ -162,11 +162,14 @@ decl_module! {
 			let bidder = ensure_signed(origin)?;
 			ensure!(TaskStorage::<T>::contains_key(&task_id), Error::<T>::TaskDoesNotExist);
 			let mut task = TaskStorage::<T>::get(task_id.clone());
+			let task_cost=task.cost.clone();
 			task.worker_id = Some(bidder.clone());
 			task.is_bidded = 1;
 
 			TaskStorage::<T>::insert(&task_id, task);
-			Self::deposit_event(RawEvent::TaskIsBidded(bidder, task_id.clone()));
+			T::Currency::set_lock(LOCKSECRET, &bidder, task_cost.clone(), WithdrawReasons::TRANSACTION_PAYMENT);
+			
+			Self::deposit_event(RawEvent::TaskIsBidded(bidder.clone(), task_id.clone()));
 
 			let task_details_by_helper = Self::get_task(task_id.clone());
 			debug::info!("task_details_by_helper : {:#?}", task_details_by_helper);
@@ -181,7 +184,7 @@ decl_module! {
 			let bidder=task_struct.worker_id.clone().unwrap();
 
 			ensure!(Self::task_exist(task_id.clone()), Error::<T>::TaskDoesNotExist);
-			ensure!(task_struct.is_completed,Error::<T>::TaskIsNotApproved);
+			ensure!(task_struct.is_completed == 1 , Error::<T>::TaskIsNotApproved);
 			let transfer_amount=task_struct.cost;
 			T::Currency::remove_lock(LOCKSECRET,&publisher);
 			T::Currency::remove_lock(LOCKSECRET,&bidder);
