@@ -34,9 +34,9 @@ pub struct TaskDetails<AccountId, Balance> {
 	publisher: AccountId,
 	worker_id: Option<AccountId>,
 	task_deadline: u64,
-	task_description: Vec<u8>,
 	cost: Balance,
 	status: Status,
+	task_description: Vec<u8>,
 }
 
 #[derive(Encode, Decode, PartialEq, Eq, Debug, Clone)]
@@ -103,7 +103,7 @@ decl_event!(
 		/// Event documentation should end with an array that provides descriptive names for event
 		/// parameters. [something, who]
 		SomethingStored(u32, AccountId),
-		TaskCreated(AccountId, u128, u64, Vec<u8>, Balance),
+		TaskCreated(AccountId, u128, u64, Balance, Vec<u8>),
 		AccBalance(AccountId, Balance),
 		CountIncreased(u128),
 		TransferMoney(AccountId, Balance, Balance, AccountId, Balance, Balance),
@@ -131,6 +131,7 @@ decl_error! {
 		TaskIsNotOpen,
 		TaskIsNotInProgress,
 		TaskIsNotPendingApproval,
+		UnauthorisedToBid,
 	}
 }
 
@@ -151,7 +152,7 @@ decl_module! {
 
 		/// An example dispatchable that may throw a custom error
 		#[weight = 10_000]
-		pub fn create_task(origin, task_duration: u64, task_des: Vec<u8>, task_cost: BalanceOf<T>) {
+		pub fn create_task(origin, task_duration: u64, task_cost: BalanceOf<T>, task_des: Vec<u8>) {
 		 let sender = ensure_signed(origin)?;
 		 let current_count = Self::get_task_count();
 
@@ -163,12 +164,12 @@ decl_module! {
 			  publisher:sender.clone(),
 			  worker_id: None,
 			  task_deadline: task_duration.clone(),
-			  task_description: task_des.clone(),
 			  cost:task_cost.clone(),
 			  status: Default::default(),
+			  task_description: task_des.clone(),
 		  };
 		  TaskStorage::<T>::insert(current_count.clone(), temp);
-		  Self::deposit_event(RawEvent::TaskCreated(sender, current_count.clone(), task_duration.clone(), task_des.clone(), task_cost.clone()));
+		  Self::deposit_event(RawEvent::TaskCreated(sender, current_count.clone(), task_duration.clone(), task_cost.clone(), task_des.clone()));
 		  TaskCount::put(current_count + 1);
 		}
 
@@ -177,6 +178,9 @@ decl_module! {
 			let bidder = ensure_signed(origin)?;
 			ensure!(TaskStorage::<T>::contains_key(&task_id), Error::<T>::TaskDoesNotExist);
 			let mut task = TaskStorage::<T>::get(task_id.clone());
+
+			let publisher = task.publisher.clone();
+			ensure!(publisher != bidder.clone(), Error::<T>::UnauthorisedToBid);
 
 			let status = task.status.clone();
 			ensure!(status == Status::Open, Error::<T>::TaskIsNotOpen);
