@@ -36,8 +36,21 @@ pub struct TaskDetails<AccountId, Balance> {
 	task_deadline: u64,
 	task_description: Vec<u8>,
 	cost: Balance,
-	is_bidded: u8,
-	is_completed: u8,
+	status: Status,
+}
+
+#[derive(Encode, Decode, PartialEq, Eq, Debug, Clone)]
+pub enum Status {
+	Open,
+	InProgress,
+	PendingApproval,
+	Completed,
+}
+
+impl Default for Status {
+	fn default() -> Self {
+		Status::Open
+	}
 }
 
 #[derive(Encode, Decode, Default, Debug, PartialEq, Clone, Eq)]
@@ -98,6 +111,7 @@ decl_event!(
 		TaskIsBidded(AccountId, u128),
 		AmountTransfered(AccountId, AccountId, Balance),
 		TaskCompleted(AccountId, u128, AccountId),
+		TaskApproved(u128),
 	}
 );
 
@@ -113,7 +127,10 @@ decl_error! {
 		TaskDoesNotExist,
 		AlreadyMember,
 		TaskIsNotApproved,
-		YouNeverBiddedForThisTask
+		YouNeverBiddedForThisTask,
+		TaskIsNotOpen,
+		TaskIsNotInProgress,
+		TaskIsNotPendingApproval,
 	}
 }
 
@@ -134,7 +151,7 @@ decl_module! {
 
 		/// An example dispatchable that may throw a custom error
 		#[weight = 10_000]
-		pub fn create_task(origin, task_duration: u64, task_des: Vec<u8>, task_cost: BalanceOf<T>) -> dispatch::DispatchResult {
+		pub fn create_task(origin, task_duration: u64, task_des: Vec<u8>, task_cost: BalanceOf<T>) {
 		 let sender = ensure_signed(origin)?;
 		 let current_count = Self::get_task_count();
 
@@ -148,13 +165,11 @@ decl_module! {
 			  task_deadline: task_duration.clone(),
 			  task_description: task_des.clone(),
 			  cost:task_cost.clone(),
-			  is_bidded: Default::default(),
-			  is_completed: Default::default(),
+			  status: Default::default(),
 		  };
 		  TaskStorage::<T>::insert(current_count.clone(), temp);
 		  Self::deposit_event(RawEvent::TaskCreated(sender, current_count.clone(), task_duration.clone(), task_des.clone(), task_cost.clone()));
 		  TaskCount::put(current_count + 1);
-		  Ok(())
 		}
 
 		#[weight = 10_000]
@@ -162,13 +177,16 @@ decl_module! {
 			let bidder = ensure_signed(origin)?;
 			ensure!(TaskStorage::<T>::contains_key(&task_id), Error::<T>::TaskDoesNotExist);
 			let mut task = TaskStorage::<T>::get(task_id.clone());
-			let task_cost=task.cost.clone();
+
+			let status = task.status.clone();
+			ensure!(status == Status::Open, Error::<T>::TaskIsNotOpen);
+
+			let task_cost= task.cost.clone();
 			task.worker_id = Some(bidder.clone());
-			task.is_bidded = 1;
+			task.status= Status::InProgress;
 
 			TaskStorage::<T>::insert(&task_id, task);
 			T::Currency::set_lock(LOCKSECRET, &bidder, task_cost.clone(), WithdrawReasons::TRANSACTION_PAYMENT);
-			
 			Self::deposit_event(RawEvent::TaskIsBidded(bidder.clone(), task_id.clone()));
 
 			let task_details_by_helper = Self::get_task(task_id.clone());
@@ -180,17 +198,21 @@ decl_module! {
 			let publisher=ensure_signed(origin)?;
 			ensure!(Self::task_exist(task_id.clone()), Error::<T>::TaskDoesNotExist);
 
-			let  task_struct= TaskStorage::<T>::get(&task_id);
+			let mut task_struct = TaskStorage::<T>::get(&task_id);
+			let status = task_struct.status;
+			ensure!(status == Status::PendingApproval, Error::<T>::TaskIsNotPendingApproval);
 			let bidder=task_struct.worker_id.clone().unwrap();
 
-			ensure!(Self::task_exist(task_id.clone()), Error::<T>::TaskDoesNotExist);
-			ensure!(task_struct.is_completed == 1 , Error::<T>::TaskIsNotApproved);
-			let transfer_amount=task_struct.cost;
+			task_struct.status = Status::Completed;
+			TaskStorage::<T>::insert(&task_id,task_struct.clone());
+
+			let transfer_amount = task_struct.cost;
 			T::Currency::remove_lock(LOCKSECRET,&publisher);
 			T::Currency::remove_lock(LOCKSECRET,&bidder);
 			T::Currency::transfer(&publisher,&bidder, transfer_amount, ExistenceRequirement::KeepAlive)?;
 
 			Self::deposit_event(RawEvent::AmountTransfered(publisher.clone(),bidder.clone(),transfer_amount.clone()));
+			Self::deposit_event(RawEvent::TaskApproved(task_id.clone()));
 		}
 
 		#[weight = 10_000]
@@ -198,9 +220,15 @@ decl_module! {
 			 let bidder=ensure_signed(origin)?;
 			 ensure!(Self::task_exist(task_id.clone()), Error::<T>::TaskDoesNotExist);
 			 let mut task_struct=TaskStorage::<T>::get(&task_id);
+
+			 let status=task_struct.status;
+			 ensure!(status == Status::InProgress,Error::<T>::TaskIsNotInProgress);
+
 			 let publisher = task_struct.publisher.clone();
 			 ensure!(task_struct.worker_id.clone().unwrap()==bidder, Error::<T>::YouNeverBiddedForThisTask);
-			 task_struct.is_completed = 1;
+
+			 task_struct.status = Status::PendingApproval;
+
 			 TaskStorage::<T>::insert(&task_id,task_struct.clone());
 			 Self::deposit_event(RawEvent::TaskCompleted(publisher.clone(), task_id.clone(),bidder.clone()));
 		}
