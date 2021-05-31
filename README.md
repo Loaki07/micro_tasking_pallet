@@ -1,3 +1,26 @@
+# Market Place
+
+# Description- 
+Marketplace is a blockchain based micro tasking Dapp.Envisioned to change the data market paradigm forever. Starting with  V1  &  new concepts down the line.
+
+Our main stakeholder would be publisher & bidders.This Marketplace would be a single one to go platform for both publishers to outsource their work &  Bidders  to earn tokens by completing tasks.
+Marketplace is a substrate based  open source platform to publish & bid for tasks. We would have two crucial actors first one is -
+
+# Publisher- 
+People looking to get their tasks completed  would be publishing their task on the marketplace & after completion would be paying bidders.
+
+# Bidders- 
+People looking to earn tokens would be playing the bidders role.Bidders would be bidding for tasks & accepting to submit the task before task deadline defined by publisher failing to do which will result in slashing or no payment from publisher. 
+
+Marketplace is an open source project with continuous development to evolve with the industry standards while leveraging the PolkaDots relay chain.
+
+
+# Functionality & flow-
+
+First we assume the Publisher would publish a task by providing general details like task cost, deadline & task description.In create task function we would be locking account balance same as the task cost.
+The bidder can bid for any task by calling bid for task function,first we will ensure the task id provided exists in the storage & than add bidder in the storage.
+Bidder after completion of task
+
 # Substrate Node Template
 
 A fresh FRAME-based [Substrate](https://www.substrate.io/) node, ready for hacking :rocket:
